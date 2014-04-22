@@ -81,11 +81,15 @@ class Target:
                     b[1]) / 2 ), points)
                 x = center_point[0]
                 y = center_point[1]
+                # only for X
+                #  boundaries
                 if 100 < x < 640:
                     import serial
                     import numpy
+                    #  interpolate from pixel to degrees 
                     degree = numpy.interp(x,[100,640],[120,60])
                     print ("%d"%degree)
+                    # send to serial crappy 
                     ser.write("%d\n" % degree)
 
                 cv.Circle(color_image, center_point, 40, cv.CV_RGB(255, 255, 255), 1)
