@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 
 import cv,serial
-ser = serial.Serial('/dev/ttyUSB0', 9600)
+from cruise_control import CruiseControl
+
 
 class Target:
 
     def __init__(self):
         self.capture = cv.CaptureFromCAM(1)
         cv.NamedWindow("Target", 1)
+
+        self.cruise = CruiseControl()
+        self.cruise.start()
 
     def run(self):
         # Capture first frame to get size
@@ -26,8 +30,16 @@ class Target:
             color_image = cv.QueryFrame(self.capture)
 
             # Smooth to get rid of false positives
-            cv.Smooth(color_image, color_image, cv.CV_GAUSSIAN, 3, 0)
-            brightness=0
+            #cv.Smooth(color_image, color_image, cv.CV_GAUSSIAN, 3, 0)
+            brightness=00
+            average_val=0.050
+            scale_val=1.0
+            thresh=40
+            #dilate=18
+            #erode=10
+            dilate=18
+            erode=10
+            # manual exposure : 70
             #cv.AddWeighted(color_image,1,color_image,1,brightness,color_image)
 
             if first:
@@ -36,10 +48,11 @@ class Target:
                 cv.ConvertScale(color_image, moving_average, 1.0, 0.0)
                 first = False
             else:
+                cv.RunningAvg(color_image, moving_average,average_val , None)
                 cv.RunningAvg(color_image, moving_average, 0.020, None)
 
             # Convert the scale of the moving average.
-            cv.ConvertScale(moving_average, temp, 1.0, 0.0)
+            cv.ConvertScale(moving_average, temp, scale_val, 0.0)
 
             # Minus the current frame from the moving average.
             cv.AbsDiff(color_image, temp, difference)
@@ -48,18 +61,15 @@ class Target:
             cv.CvtColor(difference, grey_image, cv.CV_RGB2GRAY)
 
             # Convert the image to black and white.
-            thresh=70
             
             cv.Threshold(grey_image, grey_image, thresh, 255,
                     cv.CV_THRESH_BINARY)
             # brighten up
             # dilate -> helle flecken werden ausgeweitet
-            dilate=18
             
             cv.Dilate(grey_image, grey_image, None, dilate)
 
             # erode -> dunkle stellen werden ausgeweitet
-            erode=10
             cv.Erode(grey_image, grey_image, None, erode)
 
             storage = cv.CreateMemStorage(0)
@@ -77,8 +87,8 @@ class Target:
                 cv.Rectangle(color_image, pt1, pt2, cv.CV_RGB(255,0,0), 1)
 
             if len(points):
-                center_point= reduce(lambda a, b: ((a[0] + b[0]) / 2, (a[1] +
-                    b[1]) / 2 ), points)
+                center_point= reduce(lambda a, b: ((a[0] + b[0]) / 2, 
+                    (a[1] + b[1]) / 2 ), points)
                 x = center_point[0]
                 y = center_point[1]
                 # only for X
@@ -86,11 +96,15 @@ class Target:
                 if 100 < x < 640:
                     import serial
                     import numpy
-                    #  interpolate from pixel to degrees 
-                    degree = numpy.interp(x,[100,640],[120,60])
-                    print ("%d"%degree)
+                    #  interpolate from pixel to 0-1024
+                    # we get some value for x between 640 and 0
+                    x_val = numpy.interp(x,[0,640],[1024,0])
+                    y_val = numpy.interp(y,[0,480],[1024,0])
+                    print ("Original X/Y         - %d:%d"%(x,y))
+                    print ("Interpolated Value   - %d:%d"%(x_val,y_val))
+                    self.cruise.x = x_val
+                    self.cruise.y = y_val
                     # send to serial crappy 
-                    ser.write("%d\n" % degree)
 
                 cv.Circle(color_image, center_point, 40, cv.CV_RGB(255, 255, 255), 1)
                 cv.Circle(color_image, center_point, 30, cv.CV_RGB(255, 100, 0), 1)

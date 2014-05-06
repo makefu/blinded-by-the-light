@@ -10,6 +10,7 @@ class CruiseControl(threading.Thread):
     def __init__(self, x=90, y=90):
         super(CruiseControl, self).__init__()
         self.ser = serial.Serial('/dev/ttyUSB0', 9600)
+        self.ser.write("\r\n")
         self.set_x = self.x = x
         self.set_y = self.y = y
         self.stoprequest = threading.Event()
@@ -30,7 +31,7 @@ class CruiseControl(threading.Thread):
                 self.set_y = self.set_y + 1
             else:
                 self.set_y = self.set_y - 1
-            self.ser.write("%d,%d\n"%(self.set_x,self.set_y))
+            self.ser.write("%d,%d\r\n"%(self.set_x,self.set_y))
             self.ser.flush()
             sleep(step)
     def join(self, timeout=None):
